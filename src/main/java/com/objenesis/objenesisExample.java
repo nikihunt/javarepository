@@ -17,7 +17,7 @@ public class objenesisExample {
             println("non-arg constructor is called!");
         }
         public void say(){
-            println("hello");
+            println("hello objenesis");
         }
     }
     public static void main(String[] args){
