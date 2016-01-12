@@ -1,5 +1,6 @@
-package com.Log;
+package test;
 
+import com.Log.LogFactory;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 /**
@@ -8,10 +9,8 @@ import org.apache.log4j.PropertyConfigurator;
 
 
 public class LogTest {
-    private static final Logger logger = Logger.getLogger(LogTest.class);
-
     public static void main(String[] args){
-        PropertyConfigurator.configure(LogTest.class.getResource("/log4j.properties"));
+        Logger logger = LogFactory.getInstance().getLogger(LogTest.class);
         logger.info("first log!!!");
     }
 }
