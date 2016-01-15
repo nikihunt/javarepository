@@ -1,0 +1,15 @@
+mvn install:install-file \
+  -DgroupId=com.google \
+  -DartifactId=memory-measurer \
+  -Dpackaging=jar \
+  -Dversion=1.0-SNAPSHOT \
+  -Dfile=dist/object-explorer.jar \
+  -DgeneratePom=true
+
+
+这跟IDE有关。我用的是IntelliJ，应该像下面这样设置：
+『1』点击IntelliJ菜单 Run→Edit Configurations→在左栏的列表中选择你的那个unit test，则右边的对话框设置的是此unit test的属性。
+『2』在对话框中的“VM options”一项中，我们看到它已经填上了“-ea”，现在要加上前面提到的参数，变成：
+
+-ea -javaagent:testlib/object-explorer.jar
+然后再重新运行unit test，成功！打印了出了Object的size。
