@@ -20,12 +20,9 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 
 import java.io.*;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static com.util.Print.*;
 
 /**
  * Created by zl on 16/1/16.
@@ -36,7 +33,7 @@ public class ESClient {
     private static final Logger logger = LoggerFactory.getInstance().getLogger(ESClient.class);
     private static final Config config= ConfigFactory.load().getConfig("es");
     private TransportClient esClient = null;
-    private final String dateFormat= "^(19|20)\\d\\d-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01]) [0-2][0-3]:[0-5][0-9]:[0-5][0-9]$";
+
 
 
     private String defaultIndexName = "fast_news_all";
@@ -44,6 +41,8 @@ public class ESClient {
     private String defaultStartDate = "2015-01-01 00:00:00";
     private String defaultEndDate = "2015-02-01 00:00:00";
     private String defaultTargetFile= "/Users/a/docids.data";
+    private long defaultDateGap = 60*60*24*1000;
+    private String defaultDateFormat= "yyyy-MM-dd HH:mm:ss";
 
     /**
      * init es client
@@ -60,6 +59,7 @@ public class ESClient {
                 Settings settings = ImmutableSettings.settingsBuilder()
                         .put("cluster.name", clusterName)
                         .put("client.transport.sniff", true)
+                        //.put("client.transport.ping_timeout",60000)
                         .put("client.transport.ignore_cluster_name", true)
                         .build();
                 TransportClient tmpClient= new TransportClient(settings);
@@ -86,51 +86,10 @@ public class ESClient {
         String document = Strings.isNullOrEmpty(config.getString("type"))?defaultType:config.getString("type");
         String start = Strings.isNullOrEmpty(config.getString("date.start"))?defaultStartDate:config.getString("date.start");
         String end = Strings.isNullOrEmpty(config.getString("date.end"))?defaultEndDate:config.getString("date.end");
+        String dateFormat = Strings.isNullOrEmpty(config.getString("date.format"))?defaultDateFormat:config.getString("date.format");
+        long dateGap = config.getLong("date.gap")==0?defaultDateGap:config.getLong("date.gap");
         List<String> result = Lists.newArrayList();
-        if(!DateUtil.checkDate(start) || !DateUtil.checkDate(end)){
-            return result;
-        }
-        else {
-            QueryBuilder qb = QueryBuilders.rangeQuery("date")
-                    .gte(start)
-                    .lte(end);
-            Stopwatch watch = new Stopwatch();
-            watch.start();
-            SearchResponse scrollResp = esClient.prepareSearch(indexName)
-                    .setTypes(document)
-                    .setSearchType(SearchType.DFS_QUERY_THEN_FETCH)
-                    .setScroll(new TimeValue(60000))
-                    .setQuery(qb)
-                    .setSize(100)
-                    .execute()
-                    .actionGet();
-            watch.stop();
-            logger.info("create scroll response latency: " + watch.elapsedTime(TimeUnit.MILLISECONDS) + "ms");
-            watch.start();
-            while (true) {
-                for (SearchHit hit : scrollResp.getHits().getHits()) {
-                    result.add(hit.getId());
-                    println(hit.getId());
-                }
-                scrollResp = esClient.prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(600000)).execute().actionGet();
-                if (scrollResp.getHits().getHits().length == 0) {
-                    break;
-                }
-            }
-            watch.stop();
-            logger.info("get all hits latency: " + watch.elapsedTime(TimeUnit.MILLISECONDS) + "ms");
-            println(result.size());
-            return result;
-        }
-    }
-
-    public List<String> getDocidsV2(){
-        String indexName = Strings.isNullOrEmpty(config.getString("index.name"))?defaultIndexName:config.getString("index.name");
-        String document = Strings.isNullOrEmpty(config.getString("type"))?defaultType:config.getString("type");
-        String start = Strings.isNullOrEmpty(config.getString("date.start"))?defaultStartDate:config.getString("date.start");
-        String end = Strings.isNullOrEmpty(config.getString("date.end"))?defaultEndDate:config.getString("date.end");
-        List<String> result = Lists.newArrayList();
-        if(!DateUtil.checkDate(start) || !DateUtil.checkDate(end)){
+        if(!DateUtil.checkDate(start,dateFormat) || !DateUtil.checkDate(end,dateFormat)){
             return result;
         }
         else {
@@ -147,7 +106,7 @@ public class ESClient {
                     .setSize(100);
             Stopwatch watch = new Stopwatch();
 
-            List<String> dateList = splitDate(start,end);
+            List<String> dateList = DateUtil.splitDate(start,end,dateFormat,dateGap);
             String tmpS ;
             String tmpE ;
             Long time = 0L;
@@ -155,13 +114,21 @@ public class ESClient {
                 tmpS = dateList.get(i);
                 tmpE = dateList.get(i + 1);
                 logger.info("fetch "+tmpS+"---"+tmpE+" doc ids");
-                QueryBuilder qb = QueryBuilders.rangeQuery("date")
-                        .gte(tmpS)
-                        .lte(tmpE);
+                QueryBuilder qb = null;
+                if(i == 0) {
+                    qb = QueryBuilders.rangeQuery("date")
+                            .gte(tmpS)
+                            .lte(tmpE);
+                }
+                else{
+                    qb = QueryBuilders.rangeQuery("date")
+                            .gt(tmpS)
+                            .lte(tmpE);
+                }
                 watch.start();
                 SearchResponse scrollResp = search.setQuery(qb).execute().actionGet();
                 watch.stop();
-                logger.info("create "+ (i+1) +"s scroll response latency: " + (watch.elapsedTime(TimeUnit.MILLISECONDS)-time) + "ms");
+                logger.info("create "+ (i+1) +"s scroll response latency: " + (watch.elapsedTime(TimeUnit.MILLISECONDS)-time)/1000 + "s");
                 time = watch.elapsedTime(TimeUnit.MILLISECONDS);
                 watch.start();
                 while (true) {
@@ -174,7 +141,7 @@ public class ESClient {
                     }
                 }
                 watch.stop();
-                logger.info("store date "+tmpS+"---"+tmpE+" doc ids latency:" + (watch.elapsedTime(TimeUnit.MILLISECONDS)-time) + "ms");
+                logger.info("store date "+tmpS+"---"+tmpE+" doc ids latency:" + (watch.elapsedTime(TimeUnit.MILLISECONDS)-time)/1000 + "s");
                 time = watch.elapsedTime(TimeUnit.MILLISECONDS);
             }
             return result;
@@ -229,55 +196,10 @@ public class ESClient {
         return out;
     }
 
-
-    private List<String> splitDate(String start,String end){
-        List<String> lst = Lists.newArrayList();
-
-        String splitFlag1 = " ";
-        String splitFlag2 = "-";
-        String splitFlag3 = ":";
-        String[] startSplits = start.split(splitFlag1);
-        String[] endSplits = end.split(splitFlag1);
-        String[] startSplitDate = startSplits[0].split(splitFlag2);
-        String[] endSplitDate = endSplits[0].split(splitFlag2);
-        String[] startSplitTime = startSplits[1].split(splitFlag3);
-        int syear = Integer.parseInt(startSplitDate[0]);
-        int smonth = Integer.parseInt(startSplitDate[1]);
-        int sday = Integer.parseInt(startSplitDate[2]);
-        int shour = Integer.parseInt(startSplitTime[0]);
-        int smin = Integer.parseInt(startSplitTime[1]);
-        int ssec = Integer.parseInt(startSplitTime[2]);
-
-        int eyear = Integer.parseInt(endSplitDate[0]);
-        int emonth = Integer.parseInt(endSplitDate[1]);
-
-        if(syear == eyear && smonth == emonth ){
-            lst.add(start);
-            lst.add(end);
-        }
-        else{
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            Calendar cr = Calendar.getInstance();
-            cr.roll(Calendar.MONTH,false);
-            int year = syear;
-            for(int i = smonth; i < (eyear-syear)*12+emonth; ++i){
-                if(i!=1 && (i-1)%12==0)
-                    year+=1;
-                cr.set(year,(i-1)%12,sday,shour,smin,ssec);
-                lst.add(sdf.format(cr.getTime()));
-            }
-            lst.add(end);
-        }
-        return lst;
-
-    }
-
     public static void main(String[] args){
         ESClient esClient = new ESClient();
         if(esClient.init()) {
-            esClient.getDocidsV2();
+            esClient.getDocids();
         }
-//        esClient.checkDate("2015-01-01 00:00:00");
-//        esClient.splitDate("2015-05-01 00:00:00","2017-01-10 00:00:00");
     }
 }
