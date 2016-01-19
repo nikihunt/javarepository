@@ -1,5 +1,6 @@
 package com.elasticsearch;
 
+import com.date.DateUtil;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
@@ -23,8 +24,6 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.util.Print.*;
 
@@ -88,7 +87,7 @@ public class ESClient {
         String start = Strings.isNullOrEmpty(config.getString("date.start"))?defaultStartDate:config.getString("date.start");
         String end = Strings.isNullOrEmpty(config.getString("date.end"))?defaultEndDate:config.getString("date.end");
         List<String> result = Lists.newArrayList();
-        if(!checkDate(start) || !checkDate(end)){
+        if(!DateUtil.checkDate(start) || !DateUtil.checkDate(end)){
             return result;
         }
         else {
@@ -131,7 +130,7 @@ public class ESClient {
         String start = Strings.isNullOrEmpty(config.getString("date.start"))?defaultStartDate:config.getString("date.start");
         String end = Strings.isNullOrEmpty(config.getString("date.end"))?defaultEndDate:config.getString("date.end");
         List<String> result = Lists.newArrayList();
-        if(!checkDate(start) || !checkDate(end)){
+        if(!DateUtil.checkDate(start) || !DateUtil.checkDate(end)){
             return result;
         }
         else {
@@ -230,16 +229,6 @@ public class ESClient {
         return out;
     }
 
-    private boolean checkDate(String date){
-        Pattern pattern = Pattern.compile(dateFormat);
-        Matcher matcher = pattern.matcher(date);
-        if(matcher.matches())
-            return true;
-        else {
-            logger.error("date "+date+" is invalid");
-            return false;
-        }
-    }
 
     private List<String> splitDate(String start,String end){
         List<String> lst = Lists.newArrayList();
