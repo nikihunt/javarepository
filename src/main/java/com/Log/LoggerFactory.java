@@ -1,4 +1,4 @@
-package com.Log;
+package com.log;
 
 import com.google.common.base.Strings;
 import com.typesafe.config.Config;
@@ -16,23 +16,23 @@ import static com.util.Print.*;
  */
 
 
-public class LogFactory {
-    private volatile static LogFactory instance;
+public class LoggerFactory {
+    private volatile static LoggerFactory instance;
     @Getter
     private String propertyPath = "";
 
-    public static LogFactory getInstance(){
+    public static LoggerFactory getInstance(){
         if(instance == null){
-            synchronized (LogFactory.class){
+            synchronized (LoggerFactory.class){
                 if(instance == null)
-                    instance = new LogFactory();
+                    instance = new LoggerFactory();
             }
         }
         return instance;
     }
 
 
-    private LogFactory(){
+    private LoggerFactory(){
         Config config = ConfigFactory.load();
         Config pathConf = config.getConfig("log4j");
         if(pathConf != null){
@@ -42,11 +42,11 @@ public class LogFactory {
 
         File file = new File("log4j.properties");
         if( !Strings.isNullOrEmpty(propertyPath) ) {
-            PropertyConfigurator.configure(LogFactory.class.getResource(propertyPath));
+            PropertyConfigurator.configure(LoggerFactory.class.getResource(propertyPath));
         } else if ( file.exists() ){
             PropertyConfigurator.configure(file.toString());
         } else {
-            PropertyConfigurator.configure(LogFactory.class.getResource("/log4j.properties"));
+            PropertyConfigurator.configure(LoggerFactory.class.getResource("/log4j.properties"));
         }
     }
 
@@ -55,7 +55,7 @@ public class LogFactory {
     }
 
     public static void main(String[] args){
-        LogFactory logFactory = LogFactory.getInstance();
+        LoggerFactory logFactory = LoggerFactory.getInstance();
         println(logFactory.getPropertyPath());
     }
 }

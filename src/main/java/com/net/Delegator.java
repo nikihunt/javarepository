@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Map.Entry;
+
+import com.log.LoggerFactory;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
@@ -37,8 +39,9 @@ import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.params.HttpParams;
 import org.apache.log4j.Logger;
 
+
 public class Delegator {
-    private static final Logger logger = Logger.getLogger(Delegator.class);
+    private static final Logger logger = LoggerFactory.getInstance().getLogger(Delegator.class);
     protected static final int MAX = 600;
     protected static final int MAX_PER_ROUTE = 400;
     protected boolean useProxy = false;

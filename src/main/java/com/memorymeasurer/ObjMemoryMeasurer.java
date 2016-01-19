@@ -11,6 +11,7 @@ import static com.util.Print.*;
 
 /**
  * Created by zl on 16/1/15.
+ * 查看对象占用内存大小
  */
 
 

@@ -1,8 +1,8 @@
 package test;
 
-import com.Log.LogFactory;
+import com.log.LoggerFactory;
 import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
+
 /**
  * Created by zl on 16/1/12.
  */
@@ -10,7 +10,7 @@ import org.apache.log4j.PropertyConfigurator;
 
 public class LogTest {
     public static void main(String[] args){
-        Logger logger = LogFactory.getInstance().getLogger(LogTest.class);
+        Logger logger = LoggerFactory.getInstance().getLogger(LogTest.class);
         logger.info("first log!!!");
     }
 }

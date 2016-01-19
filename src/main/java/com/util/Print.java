@@ -7,13 +7,13 @@ public class Print {
     public static void print(){
         System.out.print("");
     }
-    public static void print(String str){
-        System.out.print(str);
+    public static void print(Object obj){
+        System.out.print(obj.toString());
     }
     public static void println(){
         System.out.println("");
     }
-    public static void println(String str){
-        System.out.println(str);
+    public static void println(Object obj){
+        System.out.println(obj.toString());
     }
 }

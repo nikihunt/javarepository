@@ -1,4 +1,4 @@
-package com.Log;
+package com.log;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.spi.LoggingEvent;
