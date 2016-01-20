@@ -15,8 +15,8 @@ import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.*;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.FilterBuilder;
+import org.elasticsearch.index.query.FilterBuilders;
 import org.elasticsearch.search.SearchHit;
 
 import java.io.*;
@@ -36,13 +36,15 @@ public class ESClient {
 
 
 
-    private String defaultIndexName = "fast_news_all";
-    private String defaultType = "document";
-    private String defaultStartDate = "2015-01-01 00:00:00";
-    private String defaultEndDate = "2015-02-01 00:00:00";
-    private String defaultTargetFile= "/Users/a/docids.data";
-    private long defaultDateGap = 60*60*24*1000;
-    private String defaultDateFormat= "yyyy-MM-dd HH:mm:ss";
+    private final String defaultIndexName = "fast_news_all";
+    private final String defaultType = "document";
+    private final String defaultStartDate = "2015-01-01 00:00:00";
+    private final String defaultEndDate = "2015-02-01 00:00:00";
+    private final String defaultTargetFile= "/Users/a/docids.data";
+    private final long defaultDateGap = 60*60*24*1000;
+    private final String defaultDateFormat= "yyyy-MM-dd HH:mm:ss";
+    private final int defaultTimeout = 60000;
+    private final int defaultSize = 1000;
 
     /**
      * init es client
@@ -59,7 +61,7 @@ public class ESClient {
                 Settings settings = ImmutableSettings.settingsBuilder()
                         .put("cluster.name", clusterName)
                         .put("client.transport.sniff", true)
-                        //.put("client.transport.ping_timeout",60000)
+                        .put("client.transport.ping_timeout",60000)
                         .put("client.transport.ignore_cluster_name", true)
                         .build();
                 TransportClient tmpClient= new TransportClient(settings);
@@ -88,6 +90,8 @@ public class ESClient {
         String end = Strings.isNullOrEmpty(config.getString("date.end"))?defaultEndDate:config.getString("date.end");
         String dateFormat = Strings.isNullOrEmpty(config.getString("date.format"))?defaultDateFormat:config.getString("date.format");
         long dateGap = config.getLong("date.gap")==0?defaultDateGap:config.getLong("date.gap");
+        int timeout = config.getInt("timeout")==0?defaultTimeout:config.getInt("timeout");
+        int size = config.getInt("size")==0?defaultSize:config.getInt("size");
         List<String> result = Lists.newArrayList();
         if(!DateUtil.checkDate(start,dateFormat) || !DateUtil.checkDate(end,dateFormat)){
             return result;
@@ -102,8 +106,8 @@ public class ESClient {
             SearchRequestBuilder search = esClient.prepareSearch(indexName)
                     .setTypes(document)
                     .setSearchType(SearchType.DFS_QUERY_THEN_FETCH)
-                    .setScroll(new TimeValue(60000))
-                    .setSize(100);
+                    .setScroll(new TimeValue(timeout))
+                    .setSize(size);
             Stopwatch watch = new Stopwatch();
 
             List<String> dateList = DateUtil.splitDate(start,end,dateFormat,dateGap);
@@ -114,34 +118,35 @@ public class ESClient {
                 tmpS = dateList.get(i);
                 tmpE = dateList.get(i + 1);
                 logger.info("fetch "+tmpS+"---"+tmpE+" doc ids");
-                QueryBuilder qb = null;
+                FilterBuilder qb = null;
                 if(i == 0) {
-                    qb = QueryBuilders.rangeQuery("date")
+                    qb = FilterBuilders.rangeFilter("date")
                             .gte(tmpS)
                             .lte(tmpE);
                 }
                 else{
-                    qb = QueryBuilders.rangeQuery("date")
+                    qb = FilterBuilders.rangeFilter("date")
                             .gt(tmpS)
                             .lte(tmpE);
                 }
                 watch.start();
-                SearchResponse scrollResp = search.setQuery(qb).execute().actionGet();
+                SearchResponse scrollResp = search.setPostFilter(qb).execute().actionGet();
                 watch.stop();
-                logger.info("create "+ (i+1) +"s scroll response latency: " + (watch.elapsedTime(TimeUnit.MILLISECONDS)-time)/1000 + "s");
+                logger.info("create "+ (i+1) +"s scroll response latency: " + (watch.elapsedTime(TimeUnit.MILLISECONDS)-time)*1.0/1000 + "s");
                 time = watch.elapsedTime(TimeUnit.MILLISECONDS);
                 watch.start();
                 while (true) {
                     for (SearchHit hit : scrollResp.getHits().getHits()) {
                         writer.println(hit.getId());
                     }
-                    scrollResp = esClient.prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(600000)).execute().actionGet();
+                    scrollResp = esClient.prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(timeout)).execute().actionGet();
                     if (scrollResp.getHits().getHits().length == 0) {
                         break;
                     }
                 }
+                writer.close();//remember flush buffer and close handler
                 watch.stop();
-                logger.info("store date "+tmpS+"---"+tmpE+" doc ids latency:" + (watch.elapsedTime(TimeUnit.MILLISECONDS)-time)/1000 + "s");
+                logger.info("store date "+tmpS+"---"+tmpE+" doc ids latency:" + (watch.elapsedTime(TimeUnit.MILLISECONDS)-time)*1.0/1000 + "s");
                 time = watch.elapsedTime(TimeUnit.MILLISECONDS);
             }
             return result;
@@ -153,8 +158,8 @@ public class ESClient {
             String targetFile = config.getString("targetFile");
             if (!Strings.isNullOrEmpty(targetFile)) {
                 File file = new File(targetFile);
-                if (!file.exists()) {
-                    logger.error("targetFile " + targetFile + " is not exist");
+                if (file.exists()) {
+                    logger.error("targetFile " + targetFile + " is exist");
                     targetFile = defaultTargetFile;
                 }
             } else {
@@ -178,8 +183,8 @@ public class ESClient {
         String targetFile = config.getString("targetFile");
         if (!Strings.isNullOrEmpty(targetFile)) {
             File file = new File(targetFile);
-            if (!file.exists()) {
-                logger.error("targetFile " + targetFile + " is not exist");
+            if (file.exists()) {
+                logger.error("targetFile " + targetFile + " is exist");
                 targetFile = defaultTargetFile;
             }
         } else {
