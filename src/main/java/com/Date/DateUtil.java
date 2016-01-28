@@ -11,10 +11,8 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import static com.util.Print.println;
+import static com.util.Print.*;
 
 /**
  * Created by dell on 2015/11/24.
@@ -25,6 +23,20 @@ public class DateUtil {
     public static String getFormatDate(long millisecond,String dateFormat){
         DateFormat format1 = new SimpleDateFormat(dateFormat);
         return format1.format(new Date(millisecond));
+    }
+
+    public static long getMillionSeconds(String date,String dateFormat){
+        long millionS = 0;
+        if(checkDate(date,dateFormat)){
+            DateFormat format1 = new SimpleDateFormat(dateFormat);
+            try {
+                Date d = format1.parse(date);
+                millionS = d.getTime();
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+        }
+        return millionS;
     }
 
     public static boolean checkDate(String date,String dateFormat){
@@ -129,6 +141,7 @@ public class DateUtil {
 //        millisecond = 1447084892508L;
 //        println(getFormatDate(millisecond,dateFormat));
         //splitDate("2015-05-01 00:00:00","2017-01-10 00:00:00","yyyy-MM-dd HH:mm:ss",60*60*24*1000);
-        checkDate("2015-05-01 00:00","yyyy-MM-dd HH:mm:ss");
+//        checkDate("2015-05-01 00:00","yyyy-MM-dd HH:mm:ss");
+        print(getMillionSeconds("2016-01-20 16:55:20","yyyy-MM-dd HH:mm:ss"));
     }
 }
